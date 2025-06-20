@@ -1,0 +1,130 @@
+function manualSearch() {
+    const query = document.getElementById('manual-search').value.trim().toLowerCase();
+    const searchType = document.getElementById('search-type').value;
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = '';
+
+    if (!query) {
+        showAlert('Veuillez entrer un terme de recherche.', 'warning');
+        return;
+    }
+
+    const results = [];
+    
+    if (searchType === 'marque-model') {
+        // Recherche EXCLUSIVE par marque ou modèle (ignore les numéros de série)
+        machines.forEach((machine, index) => {
+            const matchMarque = machine.marque && machine.marque.toLowerCase().includes(query);
+            const matchModel = machine.model && machine.model.toLowerCase().includes(query);
+            
+            if (matchMarque || matchModel) {
+                results.push({ 
+                    machine,
+                    index,
+                    isMarqueMatch: matchMarque,
+                    isModelMatch: matchModel
+                });
+            }
+        });
+    } else {
+        // Recherche EXCLUSIVE par numéro de série (ignore marque/modèle)
+        machines.forEach((machine, index) => {
+            if (!machine.unites) return;
+            
+            const matchingUnits = machine.unites.filter(unit => 
+                unit.numserie && unit.numserie.toLowerCase().includes(query)
+            );
+            
+            if (matchingUnits.length > 0) {
+                results.push({
+                    machine: {
+                        ...machine,
+                        unites: matchingUnits
+                    },
+                    index
+                });
+            }
+        });
+    }
+
+    // Affichage des résultats
+    if (results.length === 0) {
+        resultsContainer.innerHTML = '<div class="alert alert-warning">Aucun résultat trouvé</div>';
+        return;
+    }
+
+    let html = `<div class="list-group">`;
+    
+    if (searchType === 'numserie') {
+        // Affichage pour numéro de série
+        results.forEach(({ machine, index }) => {
+            machine.unites.forEach(unit => {
+                const highlightedNumserie = unit.numserie.replace(
+                    new RegExp(query, 'gi'), 
+                    match => `<span class="bg-warning">${match}</span>`
+                );
+                
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div><strong>${machine.marque || ''} ${machine.model || ''}</strong></div>
+                                <div class="small text-muted">
+                                    <span class="fw-bold">Série :</span> ${highlightedNumserie}
+                                    ${unit.position ? `| <span class="fw-bold">Localisation :</span> ${unit.position}` : ''}
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-primary align-self-center" 
+                                    onclick="showProductModal(${index})">
+                                <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    } else {
+        // Affichage pour marque/modèle
+        results.forEach(({ machine, index, isMarqueMatch, isModelMatch }) => {
+            const highlightedMarque = isMarqueMatch 
+                ? machine.marque.replace(
+                    new RegExp(query, 'gi'), 
+                    match => `<span class="bg-warning">${match}</span>`
+                  )
+                : machine.marque;
+            
+            const highlightedModel = isModelMatch 
+                ? machine.model.replace(
+                    new RegExp(query, 'gi'), 
+                    match => `<span class="bg-warning">${match}</span>`
+                  )
+                : machine.model;
+            
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div>
+                                <span class="fw-bold">Marque :</span> ${highlightedMarque || 'N/A'}
+                            </div>
+                            <div>
+                                <span class="fw-bold">Modèle :</span> ${highlightedModel || 'N/A'}
+                            </div>
+                            <div class="small text-muted">
+                                ${machine.quantite || 0} unités | 
+                                ${machine.emplacement || 'Non localisé'}
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-primary align-self-center" 
+                                onclick="showProductModal(${index})">
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    html += `</div>`;
+    resultsContainer.innerHTML = html;
+}
